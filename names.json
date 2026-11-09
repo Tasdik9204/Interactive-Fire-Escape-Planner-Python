@@ -1,0 +1,9 @@
+{
+  "name": "Exitwise",
+  "searched": true,
+  "queries": [
+    { "query": "\"Exitwise\" software", "result": "No product named Exitwise found. Nearest: exitwyse.com (different spelling, purpose unclear), ExitPro and ExitAdviser (HR and business-exit tools)." },
+    { "query": "\"Egressa\" OR \"Exitplan\" fire evacuation planning software", "result": "No matches for either name; evacuation tools found: Pathfinder, Weise Escape Plan, CYPEFIRE Evacuation." }
+  ],
+  "note": "Run a trademark search in your sales markets before launch. The name lives in src/brand.ts, app.html, index.html and public/privacy.html."
+}

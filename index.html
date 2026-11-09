@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en" data-type="software" data-radius="soft" data-buttons="solid" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Exitwise: fire escape planner for building managers</title>
+<meta name="description" content="Draw each floor, start a fire in any room and watch every person walk out. Exitwise times each route, flags bottlenecks and prints the report.">
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/kit/system.css">
+<link rel="stylesheet" href="/kit/ui/cards.css">
+<link rel="stylesheet" href="/kit/motion/motion.css">
+<link rel="stylesheet" href="/kit/backgrounds/backgrounds.css">
+<link rel="stylesheet" href="/kit/layout/layout.css">
+<link rel="stylesheet" href="/kit/icons/icon.css">
+<style>
+:root {
+--p-bg: #e5e1d8; --p-surface: #dad5ca; --p-ink: #2a1d17; --p-muted: #65564c;
+--p-accent: #456f3a; --p-accent-ink: #ffffff; --p-action: #456f3a; --p-action-ink: #ffffff;
+--p-inv-bg: #2a1d17; --p-inv-surface: #352822; --p-inv-ink: #e5e1d8; --p-inv-muted: #9e968e;
+--p-inv-accent: #e5e1d8; --p-inv-accent-ink: #2a1d17; --p-inv-action: #e5e1d8; --p-inv-action-ink: #2a1d17;
+--font-display: "Instrument Sans", system-ui, sans-serif;
+--font-text: "Instrument Sans", system-ui, sans-serif;
+--font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+--display-weight: 500;
+--display-tracking: -0.028em;
+--display-tracking-xl: -0.036em;
+--display-stretch: 96%;
+--ly-scale: 1.04;
+}
+</style>
+<link rel="stylesheet" href="/kit/ui/base.css">
+<script src="/kit/backgrounds/backgrounds.js"></script>
+<!-- page CSS: only what sits inside a visual (the product's own window), and --p-h per card group -->
+<style>
+  /* The product window: the planner's own chrome, plan and readouts (live HTML around a real plan capture). */
+  .ew-win { display: flex; flex-direction: column; height: 100%; background: #fbfbfc; color: #161a20; font: 13px/1.4 var(--font-text); }
+  .ew-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #dde1e6; background: #fff; }
+  .ew-bar b { font-weight: 600; }
+  .ew-tabs { display: flex; gap: 2px; margin-left: auto; padding: 2px; background: #f0f2f5; border-radius: 6px; }
+  .ew-tabs span { padding: 3px 10px; border-radius: 5px; color: #3f4753; }
+  .ew-tabs .on { background: #fff; color: #161a20; box-shadow: 0 1px 2px rgb(0 0 0 / 12%); }
+  .ew-mark { width: 18px; height: 18px; border-radius: 4px; background: #d9381e; flex: none; }
+  .ew-plan { flex: 1; min-height: 0; display: grid; place-items: center; padding: 8px; }
+  .ew-plan img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .ew-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px; border-top: 1px solid #dde1e6; background: #fff; }
+  .ew-kpis div { padding: 8px 10px; border-radius: 6px; background: #f2f4f6; border-left: 3px solid #c3cad3; }
+  .ew-kpis dt { font-size: 11.5px; color: #646e7c; }
+  .ew-kpis dd { margin: 0; font: 600 20px/1.2 var(--font-text); font-variant-numeric: tabular-nums; }
+  .ew-kpis .ok { border-left-color: #12804c; }
+  .ew-tl { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-top: 1px solid #dde1e6; background: #fff; font: 500 12px var(--font-mono); }
+  .ew-tl i { flex: 1; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #1f5fd1 62%, #dde1e6 62%); }
+  .ew-play { width: 22px; height: 22px; border-radius: 5px; background: #1f5fd1; display: grid; place-items: center; }
+  .ew-play::before { content: ""; border-left: 7px solid #fff; border-block: 5px solid transparent; margin-left: 2px; }
+
+  /* App frame (sections-library app-frame recipe). */
+  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7); background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r); box-shadow: var(--u-shadow); overflow: hidden; }
+  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
+  .app > .app__pane--list::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px; background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
+  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
+  @media (max-width: 1023px) {
+    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .app > .app__pane--list { max-height: 252px; }
+    .app > .app__pane--list::after { display: none; }
+    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+  }
+  @media (max-width: 639px) {
+    .app.ui { grid-template-rows: minmax(0, 1fr); }
+    .app > .app__pane--list { display: none; }
+    .app > .app__pane + .app__pane { border-top: 0; }
+  }
+  .ew-list { font: 13px/1.35 var(--font-text); color: #161a20; }
+  .ew-list header { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 16px 10px; border-bottom: 1px solid #e8ebef; }
+  .ew-list header b { font-size: 14px; font-weight: 600; }
+  .ew-list header span, .ew-row small { color: #646e7c; }
+  .ew-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 16px; border-bottom: 1px solid #eef0f3; }
+  .ew-row b { font-weight: 500; }
+  .ew-chip { grid-row: span 2; align-self: center; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background: #e3f1e9; color: #12804c; }
+  .ew-chip.warn { background: #f8ecd9; color: #8a5000; }
+  .ew-row.on { background: #e6eefc; }
+
+  /* Feature panels. */
+  #features .panel { --p-h: 300px; }
+  .ew-fill { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; }
+  .ew-fill > img { width: 100%; height: 100%; object-fit: contain; }
+  .ew-card { width: min(100%, 420px); background: #fff; color: #161a20; border-radius: 10px; border: 1px solid #dde1e6; box-shadow: 0 8px 24px rgb(16 24 40 / 8%); padding: 14px 16px; font: 13px/1.4 var(--font-text); }
+  .ew-fill--rise { place-items: end center; padding: 40px 40px 0; }
+  .ew-fill--rise .ew-card { width: 100%; max-width: 480px; border-bottom: 0; border-radius: 10px 10px 0 0; padding-bottom: 28px; }
+  .ew-list { background: #fff; min-height: 100%; }
+  .ew-card h4 { margin: 0 0 8px; font: 600 12px var(--font-text); color: #646e7c; }
+  .ew-curve { width: 100%; height: auto; display: block; }
+  .ew-find { display: grid; gap: 2px; padding: 8px 10px; border-left: 3px solid #c42b1c; border-radius: 4px; background: #fbf3f2; margin-top: 8px; }
+  .ew-find.warn { border-left-color: #a35f00; background: #fbf6ee; }
+  .ew-find small { font-weight: 600; font-size: 11px; color: #c42b1c; }
+  .ew-find.warn small { color: #a35f00; }
+  .ew-score { display: flex; align-items: baseline; gap: 6px; font: 600 30px/1 var(--font-text); color: #a35f00; }
+  .ew-score span { font-size: 13px; color: #646e7c; font-weight: 400; }
+
+  /* Report page (split-text-left frame): taller on desktop so the column fills, shorter on a tablet so the section stays one screen. */
+  @media (min-width: 1024px) { #report .frame--split { --ratio: 110%; } }
+  @media (min-width: 640px) and (max-width: 1023px) { #report .frame--split { --ratio: 56%; } }
+  @media (max-width: 639px) {
+    #features .panel { --p-h: 180px; }
+    .ew-tabs, .hero__media .ly-float, .hero__media .ew-tl { display: none; }
+    .ew-kpis { gap: 6px; padding: 8px; }
+    .ew-kpis div { padding: 6px 8px; }
+    .ew-kpis dd { font-size: 16px; }
+  }
+  .ew-report { position: absolute; left: 56px; top: 56px; width: 600px; background: #fff; color: #161a20; border-radius: 6px; box-shadow: 0 10px 30px rgb(16 24 40 / 14%); padding: 32px 36px; font: 12px/1.45 var(--font-text); }
+  .ew-report p { margin: 0; }
+  .ew-report .k { color: #d9381e; font-weight: 600; font-size: 10.5px; letter-spacing: 0.06em; }
+  .ew-report h4 { margin: 4px 0 2px; font: 600 22px/1.2 var(--font-text); }
+  .ew-report h5 { margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 2px solid #161a20; font: 600 13px var(--font-text); }
+  .ew-report table { width: 100%; border-collapse: collapse; }
+  .ew-report td, .ew-report th { text-align: left; padding: 5px 4px; border-bottom: 1px solid #e8ebef; }
+  .ew-report th { color: #3f4753; font-weight: 600; }
+  .ew-report img { width: 100%; display: block; margin-top: 8px; border: 1px solid #e8ebef; border-radius: 4px; }
+  @media (max-width: 639px) { .ew-report { left: 24px; top: 24px; width: 520px; padding: 24px; } }
+</style>
+</head>
+<body>
+<!-- type: software
+     deal: hero split, nav nav-cards, close close-type, footer footer-dark, rhythm space, buttons solid, mark dots,
+           palette green-mat-chocolate, type instrument, radius soft, grounds none, effect none, moments none
+     screens: hero 1 · planner (app-frame) 1 · features (2x2, .g2) 2 · report (split-text-left) 1 · faq 1 · closing 1 -->
+<header class="nav">
+  <div class="wrap nav__bar">
+    <a class="nav__logo" href="#top"><span class="mark" data-mark="dots" aria-hidden="true"></span>Exitwise</a>
+    <nav class="nav__links" aria-label="Main">
+      <div class="nav__item">
+        <a class="nav__link" href="#planner">Planner <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <div class="nav__menu">
+          <div class="wrap grid">
+            <a class="menu-card span-4" href="#planner">
+              <div class="panel"><img class="frame__img" src="/kit/shots/clinic-design.svg" alt="Clinic ground floor drawn as rooms, corridors, stairs and exits"></div>
+              <span class="t-card">Design</span>
+              <span class="t-small muted">Rooms, corridors, stairs and exits over your drawing</span>
+            </a>
+            <a class="menu-card span-4" href="#features">
+              <div class="panel"><img class="frame__img" src="/kit/shots/office-sim.svg" alt="Office floor with smoke spreading and people queuing at the exits"></div>
+              <span class="t-card">Simulate</span>
+              <span class="t-small muted">Fire, smoke and every person, second by second</span>
+            </a>
+            <a class="menu-card span-4" href="#report">
+              <div class="panel"><img class="frame__img" src="/kit/shots/office-audit.svg" alt="Office floor with the walking distance to an exit under each room"></div>
+              <span class="t-card">Audit</span>
+              <span class="t-small muted">Travel distances, dead ends and weak doors</span>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="nav__item"><a class="nav__link" href="#features">Features</a></div>
+      <div class="nav__item"><a class="nav__link" href="#report">Report</a></div>
+      <div class="nav__item"><a class="nav__link" href="#faq">Questions</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="/app.html">Open the planner</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--split" aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text grid hero__grid">
+      <div class="hero__text span-5">
+        <p class="hero__kicker"><span class="dot" aria-hidden="true"></span>Every person simulated in 0.25 s steps</p>
+        <h1 id="hero-h">Fire escape planner for buildings</h1>
+        <p class="hero__lead">Draw each floor, start a fire in any room and watch every person walk out. Exitwise times each route, flags the bottlenecks and prints the report.</p>
+        <div class="btn-row">
+          <a class="btn btn--primary" href="/app.html">Open the planner<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+          <a class="btn btn--secondary" href="#report">See the report</a>
+        </div>
+      </div>
+      <div class="hero__media span-6 start-7">
+        <div class="ew-win" role="img" aria-label="The planner simulating a fire in a clinic's plant room, with the escape route from Ward A drawn in green">
+          <div class="ew-bar"><span class="ew-mark"></span><b>Two-storey clinic</b><span class="ew-tabs"><span>Design</span><span class="on">Simulate</span><span>Audit</span><span>Report</span></span></div>
+          <div class="ew-plan"><img src="/kit/shots/clinic-route.svg" alt="" fetchpriority="high"></div>
+          <div class="ew-tl"><span class="ew-play"></span>1:36<i></i>2:11</div>
+          <dl class="ew-kpis">
+            <div class="ok"><dt>Safe</dt><dd>93/93</dd></div>
+            <div><dt>Trapped</dt><dd>0</dd></div>
+            <div><dt>Last out</dt><dd>2:10</dd></div>
+            <div><dt>95% out</dt><dd>1:51</dd></div>
+          </dl>
+        </div>
+        <div class="ly-float ly-float--tr" style="top: 72px">
+          <div class="ly-float__row"><span class="ly-live">Route from Ward A</span><span>39 m</span></div>
+          <div class="ly-float__title">West stair, 41 s ahead of the fire</div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="planner" aria-labelledby="planner-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <h2 class="span-5" id="planner-h">One plan from drawing to fire drill</h2>
+        <p class="span-6 start-7 muted">Every room gets a main exit and a second way out. Change a door, a width or a fire origin and the routes and timings update at once. <a class="link" href="/app.html">Try the office template</a></p>
+      </div>
+      <div class="ui app fill" role="img" aria-label="The office floor during a kitchen fire: room routes on the left, the floor plan with people queuing at both exits on the right">
+        <div class="app__pane app__pane--list">
+          <div class="ew-list">
+            <header><b>Room escape routes</b><span>16 rooms · 123 people</span></header>
+            <div class="ew-row on"><b>Open office A</b><span class="ew-chip">12 m</span><small>30 people · West exit</small></div>
+            <div class="ew-row"><b>Meeting 1</b><span class="ew-chip">22 m</span><small>10 people · West exit</small></div>
+            <div class="ew-row"><b>Kitchen</b><span class="ew-chip">32 m</span><small>6 people · West exit</small></div>
+            <div class="ew-row"><b>Open office B</b><span class="ew-chip">30 m</span><small>30 people · East exit</small></div>
+            <div class="ew-row"><b>Server room</b><span class="ew-chip">20 m</span><small>1 person · East exit</small></div>
+            <div class="ew-row"><b>Reception</b><span class="ew-chip">5 m</span><small>8 people · Main entrance</small></div>
+            <div class="ew-row"><b>Meeting 2</b><span class="ew-chip">22 m</span><small>10 people · West exit</small></div>
+            <div class="ew-row"><b>Training room</b><span class="ew-chip">32 m</span><small>25 people · West exit</small></div>
+            <div class="ew-row"><b>Director</b><span class="ew-chip">30 m</span><small>2 people · East exit</small></div>
+            <div class="ew-row"><b>Store</b><span class="ew-chip">20 m</span><small>1 person · East exit</small></div>
+          </div>
+        </div>
+        <div class="app__pane app__pane--open">
+          <div class="ew-win">
+            <div class="ew-bar"><span class="ew-mark"></span><b>Office floor</b><span class="muted">Fire in Kitchen</span><span class="ew-tabs"><span>Design</span><span class="on">Simulate</span><span>Audit</span><span>Report</span></span></div>
+            <div class="ew-plan"><img src="/kit/shots/office-sim.svg" alt="" loading="lazy"></div>
+            <div class="ew-tl"><span class="ew-play"></span>1:22<i></i>1:57</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section g2" id="features" aria-labelledby="features-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="features-h">Built for real buildings. <span class="muted">Drawings, people, fire doors and stairs.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row card--open span-6">
+            <h3>Traces over your floor plans</h3>
+            <p>Drop in a scan or CAD export, click two points a known distance apart and draw rooms to scale.</p>
+            <div class="panel"><div class="ew-fill"><img src="/kit/shots/clinic-design.svg" alt="Clinic ground floor with waiting area, consult rooms, X-ray, two stairs and three exits" loading="lazy"></div></div>
+          </article>
+          <article class="card card--row card--open span-6">
+            <h3>Times every person to the door</h3>
+            <p>Walking speed, stairs, smoke and door width all count, so queues form where they would on the day.</p>
+            <div class="panel"><div class="ew-fill ew-fill--rise">
+              <div class="ew-card">
+                <h4>People safe over time · office, kitchen fire</h4>
+                <svg class="ew-curve" viewBox="0 0 320 120" role="img" aria-label="Curve rising from 0 to 123 people safe between 0:45 and 1:57">
+                  <line x1="30" x2="312" y1="12" y2="12" stroke="#e8ebef"/><line x1="30" x2="312" y1="100" y2="100" stroke="#e8ebef"/>
+                  <text x="24" y="15" text-anchor="end" font-size="9" fill="#646e7c">123</text><text x="24" y="103" text-anchor="end" font-size="9" fill="#646e7c">0</text>
+                  <line x1="282" x2="282" y1="8" y2="100" stroke="#a35f00" stroke-dasharray="4 3"/>
+                  <text x="278" y="94" text-anchor="end" font-size="9" fill="#646e7c">target 2:30</text>
+                  <path d="M30 100 L110 100 L130 97 L150 90 L170 74 L190 52 L210 33 L225 22 L240 15 L250 12" fill="none" stroke="#1f5fd1" stroke-width="2"/>
+                  <path d="M30 100 L110 100 L130 97 L150 90 L170 74 L190 52 L210 33 L225 22 L240 15 L250 12 L250 100 Z" fill="#1f5fd1" opacity="0.1"/>
+                  <text x="30" y="116" font-size="9" fill="#646e7c">0:00</text><text x="250" y="116" text-anchor="middle" font-size="9" fill="#646e7c">1:57</text>
+                </svg>
+              </div>
+            </div></div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-6">
+          <h3>Finds the door that cuts a wing off</h3>
+          <p>The audit checks travel distance, dead ends, narrow doors and exit capacity against your local limits.</p>
+          <div class="panel"><div class="ew-fill ew-fill--rise">
+            <div class="ew-card">
+              <h4>Audit · BUP academic block</h4>
+              <div class="ew-score">90<span>/100 · 2 warnings</span></div>
+              <div class="ew-find warn"><small>Warning</small><b>Travel distance from W2 is 49.6 m</b><span>Limit is 45.0 m. Add an exit closer or shorten the route.</span></div>
+              <div class="ew-find warn"><small>Warning</small><b>Travel distance from W1 is 49.6 m</b><span>Limit is 45.0 m.</span></div>
+            </div>
+          </div></div>
+        </article>
+        <article class="card card--row card--open span-6">
+          <h3>Links floors with stairs and refuges</h3>
+          <p>Stairs slow people down, fire doors hold smoke back, and refuge areas take those who cannot get out.</p>
+          <div class="panel"><div class="ew-fill"><img src="/kit/shots/clinic-route.svg" alt="Clinic first floor with fire doors, a refuge and the route from Ward A to the west stair" loading="lazy"></div></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="report" aria-labelledby="report-h">
+    <div class="wrap">
+      <div class="grid grid--top fill">
+        <div class="span-5 stack-5">
+          <h2 id="report-h">A report your fire officer can read</h2>
+          <p class="t-lead">Every scenario, every room's main and second route, each finding and the assumptions behind them, ready to print or save as PDF.</p>
+          <ul class="stack-3">
+            <li>Score out of 100 with each finding explained</li>
+            <li>Scenario table: safe, trapped, last person out</li>
+            <li>Floor plans with each room's distance to an exit</li>
+          </ul>
+          <a class="link" href="/app.html">Print a report from a template</a>
+        </div>
+        <div class="frame frame--split span-6 start-7">
+          <div class="stage stage--fade-br">
+            <div class="ew-report" role="img" aria-label="First page of an Exitwise assessment report for an office floor">
+              <p class="k">EXITWISE · FIRE ESCAPE ASSESSMENT</p>
+              <h4>Office floor</h4>
+              <p>1 floor · 123 occupants</p>
+              <h5>Scenario results</h5>
+              <table>
+                <tr><th>Scenario</th><th>Safe</th><th>Trapped</th><th>Last out</th></tr>
+                <tr><td>Fire in Kitchen</td><td>123/123</td><td>0</td><td>1:57</td></tr>
+                <tr><td>Fire in Store, east exit blocked</td><td>123/123</td><td>0</td><td>2:17</td></tr>
+                <tr><td>Drill, no fire</td><td>123/123</td><td>0</td><td>1:58</td></tr>
+              </table>
+              <h5>Ground floor</h5>
+              <img src="/kit/shots/office-audit.svg" alt="" loading="lazy">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-5 stack-4">
+          <h2 id="faq-h">Questions</h2>
+          <p class="muted">What people ask before they draw their first floor.</p>
+          <a class="link" href="#contact">Contact us</a>
+        </div>
+        <div class="faq span-6 start-7">
+          <div class="faq__item"><h3>Where is my building data stored?</h3><p>In your own browser. Nothing is uploaded; export a project file to back it up or share it.</p></div>
+          <div class="faq__item"><h3>Does it replace a fire risk assessment?</h3><p>No. It supports planning and drills; a fire engineer still signs off against your local code.</p></div>
+          <div class="faq__item"><h3>Can I set my own code limits?</h3><p>Yes. Travel distance, minimum width, target time, walking speeds and spread rates are all settings.</p></div>
+          <div class="faq__item"><h3>Do maps from the old Python planner open?</h3><p>Yes. Import the JSON file and its rooms, exits and distances come across.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--dark ground-inverse" id="contact" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Check your building's escape routes today</h2>
+        <p class="t-small muted">Runs in the browser. Five templates to start from.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide" href="/app.html">Open the planner<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    <div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo" href="#top"><span class="mark" data-mark="dots" aria-hidden="true"></span>Exitwise</a>
+          <p class="footer__lede">Fire escape planning for real buildings.</p>
+        </div>
+        <div class="span-2 footer__col"><h4>Planner</h4><ul><li><a href="#planner">Routes</a></li><li><a href="/app.html">Templates</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Features</h4><ul><li><a href="#features">Simulation</a></li><li><a href="#features">Audit</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Report</h4><ul><li><a href="#report">Sample</a></li><li><a href="/app.html">Print a report</a></li></ul></div>
+        <div class="span-2 footer__col"><h4>Questions</h4><ul><li><a href="#faq">Answers</a></li><li><a href="mailto:hello@exitwise.example">Email us</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; 2026 Exitwise &nbsp; <a href="/privacy.html">Privacy</a></span>
+        <div class="socials"></div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="/kit/system.js"></script>
+<script src="/kit/layout/layout.js"></script>
+<script type="module" src="/kit/motion/motion.js"></script>
+</body>
+</html>
